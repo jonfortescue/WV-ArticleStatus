@@ -4,6 +4,7 @@ dump/
 # virtualenv
 bin/
 include/
+lib/
 local/
 pip-selfcheck.json
 
