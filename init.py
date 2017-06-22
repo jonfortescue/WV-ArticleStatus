@@ -1,16 +1,27 @@
+# -*- coding: utf-8 -*-
 from lxml import etree
 from pymongo import MongoClient
+import sys
 
+# without this, encoding issues cause errors
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+ # the file path of the semimonthly dump
 DUMP_FILE_PATH = "dump/enwikivoyage-latest-pages-articles.xml"
 
-print "didn't fuck this up"
-
+# connect with mongodb before doing anything else
 client = MongoClient()
 db = client.app
+pages = db.pages
 
-print "made it"
-
-for event, element in etree.iterparse(DUMP_FILE_PATH, encoding='unicode', tag="{http://www.mediawiki.org/xml/export-0.10/}page"):
-    for child in list(element):
-        print str(child.tag) + ":\t\t" + str(child.text)
+# quickly loop through the list of articles, tossing out redirects and special pages
+for event, element in etree.iterparse(DUMP_FILE_PATH, tag="{http://www.mediawiki.org/xml/export-0.10/}page"):
+    title = element.findtext("{http://www.mediawiki.org/xml/export-0.10/}title")
+    if (":" not in title and element.find("{http://www.mediawiki.org/xml/export-0.10/}redirect") is None):
+        _id = int(element.findtext("{http://www.mediawiki.org/xml/export-0.10/}id"))
+        revision = element.find("{http://www.mediawiki.org/xml/export-0.10/}revision")
+        text = revision.findtext("{http://www.mediawiki.org/xml/export-0.10/}text")
+        page = {"title": title, "_id": _id, "text": text}
+        pages.insert_one(page)
     element.clear()
