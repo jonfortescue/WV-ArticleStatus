@@ -10,7 +10,7 @@ db = client.app
 
 print "made it"
 
-for event, element in etree.iterparse(DUMP_FILE_PATH, tag="{http://www.mediawiki.org/xml/export-0.10/}page"):
+for event, element in etree.iterparse(DUMP_FILE_PATH, encoding='unicode', tag="{http://www.mediawiki.org/xml/export-0.10/}page"):
     for child in list(element):
         print str(child.tag) + ":\t\t" + str(child.text)
     element.clear()
