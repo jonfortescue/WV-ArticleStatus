@@ -1,9 +1,50 @@
+<!DOCTYPE html>
 <html>
 <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title }}</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='autocomplete.css') }}">
+  <script src="{{ url_for('static', filename='autocomplete.js') }}"></script>
+  <script>
+    function urlize(url) {
+      return url.replace(/ /g, "_");
+    }
+    function gotopage(title) {
+      window.location.href = "/" + urlize(title);
+    }
+    function htmlDecode(entity) {
+      return entity.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+    }
+  </script>
 </head>
 <body>
-  <h1>{{ title }}</h1>
-  <p>{{ page }}</p>
+  <div class="container center">
+    <h1>{{ title }}</h1>
+    <input type="text" id="search" name="search" />
+    <input type="button" onclick="javacript:gotopage(document.getElementById('search').value)" value="Search">
+  </div>
+
+  <script>
+    var countries = [
+      {% for page in pages: %}
+        { label: htmlDecode("{{ page['title'] }}"), item: htmlDecode("{{ page['title'] }}") },{% endfor %}
+    ];
+
+    autocomplete({
+      input: document.getElementById("search"),
+      fetch: function(text, update) {
+        text = text.toLowerCase();
+        var suggestions = countries.filter(n => n.label.toLowerCase().startsWith(text))
+        update(suggestions);
+      },
+      onSelect: function(item, inputfield) {
+        inputfield.value = item
+      },
+			emptyMsg: "No pages found in the archive"
+    });
+  </script>
 </body>
 </html>
