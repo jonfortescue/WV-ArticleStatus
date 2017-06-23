@@ -38,7 +38,7 @@
   <script>
     // switch a title to wiki url style
     function urlize(url) {
-      return url.replace(/ /g, "_");
+      return url.replace(/ /g, "_").replace(/\//, ".");
     }
     // send the browser to a selected article style page
     function gotopage(title) {

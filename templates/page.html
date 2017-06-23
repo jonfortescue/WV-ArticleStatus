@@ -36,8 +36,14 @@
 </head>
 <body>
   <div class="container">
-    <h1><a href="{{ url }}" target="_blank">{{ page['title'] }}</a></h1>
-    <p>{{ page['text'] }}</p>
+    <h1><a href="{{ url }}" target="_blank">{{ page['title'] }}</a> <small>{{ page['type'] }} / {{ page['status'] }}</small></h1>
+    <ul>
+      {% for section in page['model'] %}
+        {% if loop.index > 1 and section['depth'] > page['model'][loop.index - 2]['depth'] %} <ul> {% endif %}
+        {% if loop.index > 1 and section['depth'] < page['model'][loop.index - 2]['depth'] %} </ul> {% endif %}
+        <li>{{ section['title'] }}<br/>{{ section['text'] }}</li>
+      {% endfor %}
+    </ul>
   </div>
 </body>
 </html>
