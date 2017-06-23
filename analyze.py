@@ -1,7 +1,14 @@
 import re
 from pymongo import MongoClient
+import sys
 
-def analyze(page):
+# without this, encoding issues cause errors
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
+
+
+def analyze(title):
 
 
 def analyze_all():
