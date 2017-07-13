@@ -20,13 +20,6 @@ client = MongoClient()
 db = client.app
 pages = db.pages
 
-# enums declared with this fantastic code found here https://stackoverflow.com/a/1695250
-def enum(*sequential, **named):
-    enums = dict(zip(sequential, range(len(sequential))), **named)
-    reverse = dict((value, key) for key, value in enums.iteritems())
-    enums['reverse_mapping'] = reverse
-    return type('Enum', (), enums)
-
 def analyze(title):
     text = pages.find_one({ 'title': title })['text']
 
@@ -65,23 +58,51 @@ def analyze(title):
 
             # now the fun begins
             # first, we build a model of the article
-            if '==' in text:
-                lead_section = text[0:text.index('==')]
-                sectionsRe = re.findall(r'(={2,})([^=]+)={2,}', text)
-                article_model = []
-                index = 1
-                for section in sectionsRe:
-                    startIndex = text.index(section[1] + "==") + len(section[1]) + len(section[0])
-                    endIndex = len(text) - 1
-                    if index < len(sectionsRe):
-                        endIndex = text.index("==", startIndex)
-                    article_model.append({ "title": section[1], "text": text[startIndex:endIndex], "depth": len(section[0]) - 2 })
-                    index += 1
-                pages.update_one( { 'title': title }, { '$set': { 'model': article_model } } )
-            else:
-                lead_section = text
-            article_model.insert(0, { "title": "Lead", "text": lead_section, "depth": 0})
+            # if '==' in text:
+            #     lead_section = text[0:text.index('==')]
+            #     sectionsRe = re.findall(r'(={2,})([^=]+)={2,}', text)
+            #     article_model = []
+            #     index = 1
+            #     for section in sectionsRe:
+            #         startIndex = text.index(section[1] + "==") + len(section[1]) + len(section[0])
+            #         endIndex = len(text) - 1
+            #         if index < len(sectionsRe):
+            #             endIndex = text.index("==", startIndex)
+            #         article_model.append({ "title": section[1], "text": text[startIndex:endIndex], "depth": len(section[0]) - 2 })
+            #         index += 1
+            #     pages.update_one( { 'title': title }, { '$set': { 'model': article_model } } )
+            # else:
+            #     lead_section = text
+            #article_model.insert(0, { "title": "Lead", "text": lead_section, "depth": 0})
+            article_model = []
+            sectionPrefix = r'=='
+            construct_sections(text, sectionPrefix, article_model)
+            pages.update_one( { 'title': title }, { '$set': { 'model': article_model } } )
 
+def construct_sections(text, sectionPrefix, article_model):
+    sectionsSplit = re.split(r'\s' + sectionPrefix + r'(?=[A-z])(?!-->)', text)
+    article_model.append({ "title": "Lead", "text": sectionsSplit[0], "subsections": [] })
+    if len(sectionsSplit) > 1:
+        for section in sectionsSplit[1:]:
+            try:
+                sectionTitle = section[0:section.index(sectionPrefix)]
+                sectionText = section[section.index(sectionPrefix):]
+            except:
+                # TODO: Remove if/else casing -- this is temporary for debugging. All exceptions should be treated as a malformed section
+                if '==' in section or 'By train' in section or re.search(r'(Get in|Get around|See|Do|Buy|Eat|Drink|Sleep|Connect|Go next)=', section) is not None:
+                    print "!! MALFORMED SECTION !!"
+                    sectionTitle = "!! MALFORMED SECTION !!"
+                    sectionText = section
+                else:
+                    print section
+                    sys.exit()
+            newPrefix = sectionPrefix + r'='
+            if newPrefix in section:
+                subsections = []
+                construct_sections(sectionText, newPrefix, subsections)
+                article_model.append({ 'title': sectionTitle, 'text': '', 'subsections': subsections })
+            else:
+                article_model.append({ 'title': sectionTitle, 'text': sectionText, 'subsections': [] })
 
 # just loop through and analyze all articles in the database
 def analyze_all():

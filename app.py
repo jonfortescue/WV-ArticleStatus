@@ -23,7 +23,7 @@ def home():
     return render_template("index.html", title="Wikivoyage Article Status Analyzer", pages=allPages)
 
 # individual article analysis pages
-@app.route("/<pagetitle>")
+@app.route("/article/<pagetitle>")
 def pageDisplay(pagetitle):
     title = unUrlizeTitle(pagetitle) # we extract the article title from the url
     page = mongo.db.pages.find_one_or_404({"title": title}) # and then find the database entry or 404 if it doesn't exist
