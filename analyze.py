@@ -128,11 +128,12 @@ def compare_to_template(article_model, articleType):
 def construct_sections(text, sectionPrefix, article_model):
     malformed = False
     sectionsSplit = re.split(r'\s' + sectionPrefix + r'(?=[A-z])(?!-->)', text)
-    article_model["Lead"] = { "text": sectionsSplit[0], "subsections": {} }
+    article_model["00Lead"] = { "text": sectionsSplit[0], "subsections": {} }
+    count = 1
     if len(sectionsSplit) > 1:
         for section in sectionsSplit[1:]:
             try:
-                sectionTitle = storageifySectionTitle(section[0:section.index(sectionPrefix)])
+                sectionTitle = storageifySectionTitle('%02d' % count + section[0:section.index(sectionPrefix)])
                 sectionText = section[section.index(sectionPrefix):]
             except:
                 # TODO: Remove if/else casing -- this is temporary for debugging. All exceptions should be treated as a malformed section
@@ -151,6 +152,7 @@ def construct_sections(text, sectionPrefix, article_model):
                 article_model[sectionTitle] = { 'text': '', 'subsections': subsections }
             else:
                 article_model[sectionTitle] = { 'text': sectionText, 'subsections': {} }
+            count += 1
     return malformed
 
 # python dicts can't handle '.' characters in key titles -- so we replace those with ';' for storageifiedTitle

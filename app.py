@@ -15,7 +15,7 @@ def titleToUrl(title): # generate a link to the Wikivoyage article
     return "https://en.wikivoyage.org/wiki/" + title.replace(' ','_')
 def unUrlizeTitle(urlizedTitle): # switch a title from wiki url style to human readable
     return urlizedTitle.replace('_',' ').replace(';', '/')
-def unStorageifySectionTitle(storagifiedTitle):
+def unStorageifySectionTitle(storageifiedTitle):
     return storageifiedTitle.replace(';','.')
 
 # index/home page
@@ -30,4 +30,4 @@ def home():
 def pageDisplay(pagetitle):
     title = unUrlizeTitle(pagetitle) # we extract the article title from the url
     page = mongo.db.pages.find_one_or_404({"title": title}) # and then find the database entry or 404 if it doesn't exist
-    return render_template("page.html", page=page, url=titleToUrl(title), list=list, unStorageifySectionTitle=unStorageifySectionTitle)
+    return render_template("page.html", page=page, url=titleToUrl(title), list=list, sorted=sorted, unStorageifySectionTitle=unStorageifySectionTitle)
