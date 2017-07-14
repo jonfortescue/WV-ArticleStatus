@@ -73,35 +73,66 @@ def analyze(title):
 
             # now the fun begins
             # first, we build a model of the article
-            # if '==' in text:
-            #     lead_section = text[0:text.index('==')]
-            #     sectionsRe = re.findall(r'(={2,})([^=]+)={2,}', text)
-            #     article_model = []
-            #     index = 1
-            #     for section in sectionsRe:
-            #         startIndex = text.index(section[1] + "==") + len(section[1]) + len(section[0])
-            #         endIndex = len(text) - 1
-            #         if index < len(sectionsRe):
-            #             endIndex = text.index("==", startIndex)
-            #         article_model.append({ "title": section[1], "text": text[startIndex:endIndex], "depth": len(section[0]) - 2 })
-            #         index += 1
-            #     pages.update_one( { 'title': title }, { '$set': { 'model': article_model } } )
-            # else:
-            #     lead_section = text
-            #article_model.insert(0, { "title": "Lead", "text": lead_section, "depth": 0})
-            article_model = []
+            article_model = {}
             sectionPrefix = r'=='
             malformed = construct_sections(text, sectionPrefix, article_model)
             pages.update_one( { 'title': title }, { '$set': { 'model': article_model, 'malformed': malformed } } )
 
+            # the article model has been constructed. now, we analyze the model
+            # and programmatically analyze the article to determine its status.
+            # this requires us to break out the articles by type.
+            #   CITY        small city / big city / district
+            #   REGION      continent / continental section / region / huge city
+            # the rest are self-explanatory
+
+            # CITY
+            # For city articles, the following criterion is used:
+            #   STAR:
+            #       * An SVG map file is detected
+            #       * No MOS deviations
+            #       * Number of (non-map photos) > 1
+            #       * All requirements for GUIDE are met
+            #   GUIDE:
+            #       * Understand section has at least 250 words of prose
+            #       * Eat/Drink/Sleep sections all meet 7(+/-)2 rule. If there are >9 entries,
+            #           the entries are divided up into multiple lists (Splurge/Mid-range/Budget)
+            #       * MOS deviations at 19:1 ratio (19 correct MOS implementations for every one incorrect)
+            #       * 60% of listings have geocoordiantes
+            #       * Get in section has >=2 subsections with prose
+            #       * Get around section has at least 250 words of prose and/or >=2 subsections with prose
+            #       * Go next has >=3 bullet points with appropriate one-liner descriptions
+            #       * All sections have at least 50 words of prose
+            #       * All requirements for USABLE are met
+            #   USABLE:
+            #       * Get in section is not empty
+            #       * Eat and Sleep each have at least one listing with contact information
+            #       * See or Do section has at least one listing
+            #       * All requirements for OUTLINE are met
+            #   OUTLINE:
+            #       * Lead section has at least one sentence (50 characters)
+            #       * 75% of sections required by the template are present; all essential sections present
+            #   STUB:
+            #       * Requirements for OUTLINE are not met
+            if articleType == "district" or articleType == "small city" or articleType == "big city":
+                templateMatchPercentage = compare_to_template(article_model, articleType)
+
+# returns the percentage of template article sections that are present in the article model
+def compare_to_template(article_model, articleType):
+    if articleType == "district":
+        sections = 0
+        templateSections = 8
+        #if article_model[""]
+        #if any("Lead" in section for section in article_model):
+
+# recursively parse sections & subsections for the article model
 def construct_sections(text, sectionPrefix, article_model):
     malformed = False
     sectionsSplit = re.split(r'\s' + sectionPrefix + r'(?=[A-z])(?!-->)', text)
-    article_model.append({ "title": "Lead", "text": sectionsSplit[0], "subsections": [] })
+    article_model["Lead"] = { "text": sectionsSplit[0], "subsections": {} }
     if len(sectionsSplit) > 1:
         for section in sectionsSplit[1:]:
             try:
-                sectionTitle = section[0:section.index(sectionPrefix)]
+                sectionTitle = storageifySectionTitle(section[0:section.index(sectionPrefix)])
                 sectionText = section[section.index(sectionPrefix):]
             except:
                 # TODO: Remove if/else casing -- this is temporary for debugging. All exceptions should be treated as a malformed section
@@ -115,12 +146,16 @@ def construct_sections(text, sectionPrefix, article_model):
                     sys.exit()
             newPrefix = sectionPrefix + r'='
             if newPrefix in section:
-                subsections = []
+                subsections = {}
                 malformed = construct_sections(sectionText, newPrefix, subsections) or malformed    # ordering is important here to prevent short-circuiting
-                article_model.append({ 'title': sectionTitle, 'text': '', 'subsections': subsections })
+                article_model[sectionTitle] = { 'text': '', 'subsections': subsections }
             else:
-                article_model.append({ 'title': sectionTitle, 'text': sectionText, 'subsections': [] })
+                article_model[sectionTitle] = { 'text': sectionText, 'subsections': {} }
     return malformed
+
+# python dicts can't handle '.' characters in key titles -- so we replace those with ';' for storageifiedTitle
+def storageifySectionTitle(sectionTitle):
+    return sectionTitle.replace('.', ';')
 
 # just loop through and analyze all articles in the database
 def analyze_all():

@@ -16,6 +16,7 @@ DUMP_FILE_PATH = "dump/enwikivoyage-latest-pages-articles.xml"
 client = MongoClient()
 db = client.app
 pages = db.pages
+pages.remove() # remove everything before we rebuild
 
 # quickly loop through the list of articles, tossing out redirects and special pages
 for event, element in etree.iterparse(DUMP_FILE_PATH, tag="{http://www.mediawiki.org/xml/export-0.10/}page"):

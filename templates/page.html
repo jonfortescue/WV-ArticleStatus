@@ -38,13 +38,13 @@
   <div class="container">
     <h1><a href="{{ url }}" target="_blank">{{ page['title'] }}</a> <small>{{ page['type'] }} / {{ page['status'] }}</small></h1>
     <ul>
-      {% for section in page['model'] %}
+      {% for section in list(page['model']) %}
         <li>
-          {{ section['title'] }}
-          {% if section['subsections']|length > 0 %}
+          {{ unStorageifySectionTitle(section) }}
+          {% if page['model'][section]['subsections']|length > 0 %}
             <ul>
-              {% for subsection in section['subsections'] %}
-                <li>{{ subsection['title'] }}</li>
+              {% for subsection in list(page['model'][section]['subsections']) %}
+                <li>{{ unStorageifySectionTitle(subsection) }}</li>
               {% endfor %}
             </ul>
           {% endif %}
