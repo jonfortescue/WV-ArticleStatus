@@ -38,7 +38,7 @@
   <script>
     // switch a title to wiki url style
     function urlize(url) {
-      return url.replace(/ /g, "_").replace(/\//, ".");
+      return url.replace(/ /g, "_").replace(/\//, ";");
     }
     // send the browser to a selected article style page
     function gotopage(title) {
@@ -51,12 +51,24 @@
   </script>
 </head>
 <body>
-  <div class="container center">
-    <h1>{{ title }}</h1>
-    <form action="javascript:void(0)" onsubmit="javacript:gotopage(document.getElementById('search').value)">
-      <input type="text" id="search" name="search" />
-      <input type="submit" value="Search">
-    </form>
+  <div class="container">
+    <div class="row center">
+      <h1>{{ title }}</h1>
+      <form action="javascript:void(0)" onsubmit="javacript:gotopage(document.getElementById('search').value)">
+        <input type="text" id="search" name="search" />
+        <input type="submit" value="Search">
+      </form>
+    </div>
+    <div class="row">
+      <div class="col-sm-6">
+        <h2>Malformed Articles</h2>
+        <ul>
+          {% for page in malformed: %}
+            <li><a target="_blank" href="/article/{{ urlizeTitle(page['title']) }}">{{ page['title'] }}</a></li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
   </div>
 
   <script>

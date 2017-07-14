@@ -10,17 +10,18 @@ app = Flask(__name__)
 mongo = PyMongo(app) # establish MongoDB connection
 
 def urlizeTitle(title): # switch title from human readble to wiki url style
-    return title.replace(' ','_').replace('/', '.')
+    return title.replace(' ','_').replace('/', ';')
 def titleToUrl(title): # generate a link to the Wikivoyage article
     return "https://en.wikivoyage.org/wiki/" + title.replace(' ','_')
 def unUrlizeTitle(urlizedTitle): # switch a title from wiki url style to human readable
-    return urlizedTitle.replace('_',' ').replace('.', '/')
+    return urlizedTitle.replace('_',' ').replace(';', '/')
 
 # index/home page
 @app.route("/")
 def home():
     allPages = mongo.db.pages.find() # need all page titles to do autocomplete
-    return render_template("index.html", title="Wikivoyage Article Status Analyzer", pages=allPages)
+    malformed = mongo.db.pages.find({"malformed": True})
+    return render_template("index.html", title="Wikivoyage Article Status Analyzer", pages=allPages, malformed=malformed, urlizeTitle=urlizeTitle)
 
 # individual article analysis pages
 @app.route("/article/<pagetitle>")

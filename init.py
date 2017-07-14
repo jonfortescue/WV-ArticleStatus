@@ -8,6 +8,8 @@ reload(sys)
 sys.setdefaultencoding('utf-8')
 
  # the file path of the semimonthly dump
+ # obtained from https://dumps.wikimedia.org/enwikivoyage/latest/enwikivoyage-latest-pages-articles.xml.bz2
+ # TODO: automate getting this dump file
 DUMP_FILE_PATH = "dump/enwikivoyage-latest-pages-articles.xml"
 
 # connect with mongodb before doing anything else
