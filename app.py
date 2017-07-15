@@ -17,6 +17,12 @@ def unUrlizeTitle(urlizedTitle): # switch a title from wiki url style to human r
     return urlizedTitle.replace('_',' ').replace(';', '/')
 def unStorageifySectionTitle(storageifiedTitle):
     return storageifiedTitle.replace(';','.')
+def sortDictByValue(mydict, valueKey):
+    return [x[0] for x in sorted(mydict.iteritems(), key=lambda (k,v): v[valueKey])]
+def formatAsPercentage(floatingPt):
+    return '{0:.0f}%'.format(floatingPt * 100)
+def requiredSections():
+    return ["Get in", "Get around", "See", "Eat", "Sleep"]
 
 # index/home page
 @app.route("/")
@@ -30,4 +36,4 @@ def home():
 def pageDisplay(pagetitle):
     title = unUrlizeTitle(pagetitle) # we extract the article title from the url
     page = mongo.db.pages.find_one_or_404({"title": title}) # and then find the database entry or 404 if it doesn't exist
-    return render_template("page.html", page=page, url=titleToUrl(title), list=list, sorted=sorted, unStorageifySectionTitle=unStorageifySectionTitle)
+    return render_template("page.html", page=page, url=titleToUrl(title), list=list, sorted=sorted, sortDictByValue=sortDictByValue, formatAsPercentage=formatAsPercentage, unStorageifySectionTitle=unStorageifySectionTitle, requiredSections=requiredSections())

@@ -85,6 +85,10 @@ def analyze(title):
             #   REGION      continent / continental section / region / huge city
             # the rest are self-explanatory
 
+            # definitions of "standards"
+            def ONE_SENTENCE(text):
+                return len(text) >= 50
+
             # CITY
             # For city articles, the following criterion is used:
             #   STAR:
@@ -93,14 +97,14 @@ def analyze(title):
             #       * Number of (non-map photos) > 1
             #       * All requirements for GUIDE are met
             #   GUIDE:
-            #       * Understand section has at least 250 words of prose
+            #       * Understand section has at least 250 words of prose (N/A for districts)
             #       * Eat/Drink/Sleep sections all meet 7(+/-)2 rule. If there are >9 entries,
             #           the entries are divided up into multiple lists (Splurge/Mid-range/Budget)
             #       * MOS deviations at 19:1 ratio (19 correct MOS implementations for every one incorrect)
             #       * 60% of listings have geocoordiantes
             #       * Get in section has >=2 subsections with prose
-            #       * Get around section has at least 250 words of prose and/or >=2 subsections with prose
-            #       * Go next has >=3 bullet points with appropriate one-liner descriptions
+            #       * Get around section has at least 250 words of prose and/or >=2 subsections with prose (N/A for districts)
+            #       * Go next has >=3 bullet points with appropriate one-liner descriptions (N/A for districts)
             #       * All sections have at least 50 words of prose
             #       * All requirements for USABLE are met
             #   USABLE:
@@ -114,26 +118,56 @@ def analyze(title):
             #   STUB:
             #       * Requirements for OUTLINE are not met
             if articleType == "district" or articleType == "small city" or articleType == "big city":
-                templateMatchPercentage = compare_to_template(article_model, articleType)
+                # outline
+                tmpasm = template_match_percentage_and_sections_missing(article_model, articleType)
+                templateMatchPercentage = tmpasm[0]
+                templateSectionsMissing = tmpasm[1]
+                requiredSectionsPresent = required_sections_present(article_model, articleType)
+                leadSectionNotEmpty = ONE_SENTENCE(article_model["Lead"])
+                #usable
 
-# returns the percentage of template article sections that are present in the article model
-def compare_to_template(article_model, articleType):
+                pages.update_one( { 'title': title }, { '$set': { 'leadSectionNotEmpty': leadSectionNotEmpty,
+                                    'templateMatchPercentage': templateMatchPercentage, 'requiredSectionsPresent': requiredSectionsPresent,
+                                    'templateSectionsMissing': templateSectionsMissing } } )
+
+# returns a tuple containing the percentage of template article sections that
+# are present in the article model and a list of sections missing from the template
+def template_match_percentage_and_sections_missing(article_model, articleType):
+    sectionsCount = 0.0
+    templateSections = []
+    missingSections = []
+
     if articleType == "district":
-        sections = 0
-        templateSections = 8
-        #if article_model[""]
-        #if any("Lead" in section for section in article_model):
+        templateSections = ["Get in", "See", "Do", "Buy", "Eat", "Drink", "Sleep", "Connect"]
+    elif articleType == "small city":
+        templateSections = ["Understand", "Get in", "Get around", "See", "Do", "Buy", "Eat", "Drink", "Sleep", "Connect", "Go next"]
+    elif articleType == "big city":
+        templateSections = ["Understand", "Get in", "Get around", "See", "Do", "Learn", "Work", "Buy", "Eat", "Drink", "Sleep", "Stay safe", "Connect", "Cope", "Go next"]
+
+    for templateSection in templateSections:
+        if templateSection in article_model or templateSection == "See" and "See and Do" in article_model or templateSection == "Do" and "See and Do" in article_model:
+            sectionsCount += 1
+        else:
+            missingSections.append(templateSection)
+    return (sectionsCount / len(templateSections), missingSections)
+
+# all destination articles require certain sections
+def required_sections_present(article_model, articleType):
+    if articleType is not "district":
+        return "Get in" in article_model and "Get around" in article_model and ("See" in article_model or "See and Do" in article_model) and "Eat" in article_model and "Sleep" in article_model
+    else:
+        return "Get in" in article_model and ("See" in article_model or "See and Do" in article_model) and "Eat" in article_model and "Sleep" in article_model
 
 # recursively parse sections & subsections for the article model
 def construct_sections(text, sectionPrefix, article_model):
     malformed = False
     sectionsSplit = re.split(r'\s' + sectionPrefix + r'(?=[A-z])(?!-->)', text)
-    article_model["00Lead"] = { "text": sectionsSplit[0], "subsections": {} }
+    article_model["Lead"] = { "text": sectionsSplit[0], "subsections": {}, 'position': 0 }
     count = 1
     if len(sectionsSplit) > 1:
         for section in sectionsSplit[1:]:
             try:
-                sectionTitle = storageifySectionTitle('%02d' % count + section[0:section.index(sectionPrefix)])
+                sectionTitle = storageifySectionTitle(section[0:section.index(sectionPrefix)])
                 sectionText = section[section.index(sectionPrefix):]
             except:
                 # TODO: Remove if/else casing -- this is temporary for debugging. All exceptions should be treated as a malformed section
@@ -149,9 +183,9 @@ def construct_sections(text, sectionPrefix, article_model):
             if newPrefix in section:
                 subsections = {}
                 malformed = construct_sections(sectionText, newPrefix, subsections) or malformed    # ordering is important here to prevent short-circuiting
-                article_model[sectionTitle] = { 'text': '', 'subsections': subsections }
+                article_model[sectionTitle] = { 'text': '', 'subsections': subsections, 'position': count }
             else:
-                article_model[sectionTitle] = { 'text': sectionText, 'subsections': {} }
+                article_model[sectionTitle] = { 'text': sectionText, 'subsections': {}, 'position': count }
             count += 1
     return malformed
 

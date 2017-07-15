@@ -37,14 +37,38 @@
 <body>
   <div class="container">
     <h1><a href="{{ url }}" target="_blank">{{ page['title'] }}</a> <small>{{ page['type'] }} / {{ page['status'] }}</small></h1>
+    <table class="table table-bordered table-hover">
+      <tr>
+        <th colspan=2 class="center">OUTLINE</th>
+      </tr>
+      <tr>
+        <td>Required Sections Present</td>
+        <td>{{ page['requiredSectionsPresent'] }}</td>
+      </tr>
+      <tr>
+        <td>Lead Section Not Empty</td>
+        <td>{{ page['leadSectionNotEmpty'] }}</td>
+      </tr>
+      <tr>
+        <td>Template Match Percentage</td>
+        <td>{{ formatAsPercentage(page['templateMatchPercentage']) }}</td>
+      </tr>
+      <tr>
+        <td>Template Sections Missing</td>
+        <td>{% for section in page['templateSectionsMissing']: %}{% if section in requiredSections %}<b>{% endif %}{{ section }}{% if section in requiredSections %}</b>{% endif %}, {% endfor %}</td>
+      </tr>
+      <tr>
+        <th colspan=2 class="center">USABLE</th>
+      </tr>
+    </table>
     <ul>
-      {% for section in sorted(page['model']) %}
+      {% for section in sortDictByValue(page['model'], 'position') %}
         <li>
-          {{ unStorageifySectionTitle(section)[2:] }}
+          {{ unStorageifySectionTitle(section) }}
           {% if page['model'][section]['subsections']|length > 0 %}
             <ul>
-              {% for subsection in sorted(page['model'][section]['subsections']) %}
-                <li>{{ unStorageifySectionTitle(subsection)[2:] }}</li>
+              {% for subsection in sortDictByValue(page['model'][section]['subsections'], 'position') %}
+                <li>{{ unStorageifySectionTitle(subsection) }}</li>
               {% endfor %}
             </ul>
           {% endif %}
