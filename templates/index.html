@@ -65,6 +65,8 @@
         <ul>
           {% for page in malformed: %}
             <li><a target="_blank" href="/article/{{ urlizeTitle(page['title']) }}">{{ page['title'] }}</a></li>
+          {% else %}
+            <li>No malformed articles!</li>
           {% endfor %}
         </ul>
       </div>

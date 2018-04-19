@@ -51,7 +51,11 @@
       </tr>
       <tr>
         <td>Template Match Percentage</td>
+        {% if 'templateMatchPercentage' in page %}
         <td>{{ formatAsPercentage(page['templateMatchPercentage']) }}</td>
+        {% else %}
+        <td><i>Not yet implemented for template <b>{{ page['type'] }}</b></i></td>
+        {% endif %}
       </tr>
       <tr>
         <td>Template Sections Missing</td>
