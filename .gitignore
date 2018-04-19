@@ -3,9 +3,13 @@ dump/
 
 # virtualenv
 bin/
+Scripts/
 include/
+Include/
 lib/
+Lib/
 local/
+tcl/
 pip-selfcheck.json
 
 # Byte-compiled / optimized / DLL files

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title }}</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='autocomplete.css') }}">
+  <script src="{{ url_for('static', filename='autocomplete.js') }}"></script>
+  <script>
+    /*
+    All the code is GPLv3 licensed on GitHub (https://github.com/jonfortescue/WV-ArticleStatus). This is for compatibility with LibreJS.
+
+    @licstart  The following is the entire license notice for the
+    JavaScript code in this page.
+
+    Copyright (C) 2017 Jon Fortescue
+
+    The JavaScript code in this page is free software: you can
+    redistribute it and/or modify it under the terms of the GNU
+    General Public License (GNU GPL) as published by the Free Software
+    Foundation, either version 3 of the License, or (at your option)
+    any later version.  The code is distributed WITHOUT ANY WARRANTY;
+    without even the implied warranty of MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+    As additional permission under GNU GPL version 3 section 7, you
+    may distribute non-source (e.g., minimized or compacted) forms of
+    that code without the copy of the GNU GPL normally required by
+    section 4, provided you include this license notice and a URL
+    through which recipients can access the Corresponding Source.
+
+    @licend  The above is the entire license notice
+    for the JavaScript code in this page.
+    */
+  </script>
+  <script>
+    // switch a title to wiki url style
+    function urlize(url) {
+      return url.replace(/ /g, "_").replace(/\//, ";");
+    }
+    // send the browser to a selected article style page
+    function gotopage(title) {
+      window.location.href = "/article/" + urlize(title);
+    }
+    // replace a couple of stickler HTML entities with their character values for the autocomplete function
+    function htmlDecode(entity) {
+      return entity.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="row center">
+      <h1>{{ title }}</h1>
+      <form action="javascript:void(0)" onsubmit="javacript:gotopage(document.getElementById('search').value)">
+        <input type="text" id="search" name="search" />
+        <input type="submit" value="Search">
+      </form>
+    </div>
+    <div class="row">
+      <div class="col-sm-6">
+        <h2>Malformed Articles</h2>
+        <ul>
+          {% for page in malformed: %}
+            <li><a target="_blank" href="/article/{{ urlizeTitle(page['title']) }}">{{ page['title'] }}</a></li>
+          {% else %}
+            <li>No malformed articles!</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // list of every article title for the autocomplete function
+    var articles = [
+      {% for page in pages: %}
+        { label: htmlDecode("{{ page['title'] }}"), item: htmlDecode("{{ page['title'] }}") },{% endfor %}
+    ];
+
+    autocomplete({
+      input: document.getElementById("search"),
+      fetch: function(text, update) {
+        text = text.toLowerCase();
+        var suggestions = articles.filter(n => n.label.toLowerCase().startsWith(text))
+        update(suggestions);
+      },
+      onSelect: function(item, inputfield) {
+        inputfield.value = item
+      },
+			emptyMsg: "No pages found in the archive"
+    });
+  </script>
+</body>
+</html>
