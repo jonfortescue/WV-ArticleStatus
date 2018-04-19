@@ -24,11 +24,15 @@ if not Path(DUMP_FILE_PATH).is_file():
     print "Dump extracted."
 
 # connect with mongodb before doing anything else
+print "Connecting to MongoDB..."
 client = MongoClient()
 db = client.app
 pages = db.pages
+print "Erasing MongoDB before update..."
 pages.remove() # remove everything before we rebuild
+print "Erase complete."
 
+print "Building database..."
 # quickly loop through the list of articles, tossing out redirects and special pages
 for event, element in etree.iterparse(DUMP_FILE_PATH, tag="{http://www.mediawiki.org/xml/export-0.10/}page"):
     title = element.findtext("{http://www.mediawiki.org/xml/export-0.10/}title")
@@ -39,3 +43,4 @@ for event, element in etree.iterparse(DUMP_FILE_PATH, tag="{http://www.mediawiki
         page = {"title": title, "_id": _id, "text": text}
         pages.insert_one(page)
     element.clear()
+print "Complete!"
