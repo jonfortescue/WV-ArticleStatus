@@ -1,3 +1,7 @@
+# definitions of "article standards"
+def ONE_SENTENCE(text):
+    return len(text) >= 50
+
 class Article:
     "Articles are basically like special sections"
     statusRegex = re.compile(r'{{(outline|usable|guide|star|disamb|disambig|disambiguation|stub|extra|historical|gallerypageof|title-index page)(district|city|airport|park|diveguide|region|country|continent|itinerary|topic|phrasebook)?(\|(?:subregion=(?:yes|no)|[\w /()-\.]+))?}}', re.I)
@@ -14,9 +18,13 @@ class Article:
             (self.lead, self.sections, log, self.malformed) = parse_sections()
             self.log += log
             db.update_one( {'title': self.title}, { '$set': {'sections': self.sections, 'malformed': self.malformed} })
+            analyze_status(db)
         print self.log
 
-    def determine_status_and_type():
+    def __contains__(self, item):
+        return any([item in section.title for section in self.sections])
+
+    def determine_status_and_type(self):
         "Returns a tuple of the format (string ArticleStatus, string ArticleType, bool ArticleIsMalformed, string log, bool delete)"
         log = ""
         statusTemplateMatch = statusRegex.search(self.text)
@@ -60,7 +68,7 @@ class Article:
                 log += "Article " + title + " is a(n) " + articleType + " article of " + articleStatus + " status\n"
                 return (articleStatus, articleType, False, log, False)
 
-    def parse_sections():
+    def parse_sections(self):
         log = ""
         sections = []
         malformed = False
@@ -71,17 +79,94 @@ class Article:
                 newSection = Section(self, section, '==')
                 if newSection.malformed:
                     malformed = True
-                sections += newSection
+                sections.append(newSection)
 
         return (lead, sections, log, malformed)
 
-    def determine_city_type():
+    def determine_city_type(self):
         if "==Districts==" in self.text: # only huge cities have districts
             return "huge city"
         elif "==Learn==" in self.text or "==Work==" in self.text or "==Cope==" in self.text: # these are unique to the big city template
             return "big city"
         else:
             return "small city"
+
+    def analyze_status(self, db):
+        # the article model has been constructed. now, we analyze the model
+        # and programmatically analyze the article to determine its status.
+        # this requires us to break out the articles by type.
+        #   CITY        small city / big city / district
+        #   REGION      continent / continental section / region / huge city
+        # the rest are self-explanatory
+
+        # CITY
+        # For city articles, the following criterion is used:
+        #   STAR:
+        #       * An SVG map file is detected
+        #       * No MOS deviations
+        #       * Number of (non-map photos) > 1
+        #       * All requirements for GUIDE are met
+        #   GUIDE:
+        #       * Understand section has at least 250 words of prose (N/A for districts)
+        #       * Eat/Drink/Sleep sections all meet 7(+/-)2 rule. If there are >9 entries,
+        #           the entries are divided up into multiple lists (Splurge/Mid-range/Budget)
+        #       * MOS deviations at 19:1 ratio (19 correct MOS implementations for every one incorrect)
+        #       * 60% of listings have geocoordiantes
+        #       * Get in section has >=2 subsections with prose
+        #       * Get around section has at least 250 words of prose and/or >=2 subsections with prose (N/A for districts)
+        #       * Go next has >=3 bullet points with appropriate one-liner descriptions (N/A for districts)
+        #       * All sections have at least 50 words of prose
+        #       * All requirements for USABLE are met
+        #   USABLE:
+        #       * Get in section is not empty
+        #       * Eat and Sleep each have at least one listing with contact information
+        #       * See or Do section has at least one listing
+        #       * All requirements for OUTLINE are met
+        #   OUTLINE:
+        #       * Lead section has at least one sentence (50 characters)
+        #       * 75% of sections required by the template are present; all essential sections present
+        #   STUB:
+        #       * Requirements for OUTLINE are not met
+        if articleType == "district" or articleType == "small city" or articleType == "big city":
+            # outline
+            tmpasm = template_match_percentage_and_sections_missing()
+            templateMatchPercentage = tmpasm[0]
+            templateSectionsMissing = tmpasm[1]
+            requiredSectionsPresent = required_sections_present()
+            leadSectionNotEmpty = ONE_SENTENCE(self.lead)
+            #usable
+            
+            db.update_one( { 'title': self.title }, { '$set': { 'leadSectionNotEmpty': leadSectionNotEmpty,
+                                'templateMatchPercentage': templateMatchPercentage, 'requiredSectionsPresent': requiredSectionsPresent,
+                                'templateSectionsMissing': templateSectionsMissing } } )
+
+    # returns a tuple containing the percentage of template article sections that
+    # are present in the article model and a list of sections missing from the template
+    def template_match_percentage_and_sections_missing(self):
+        sectionsCount = 0.0
+        templateSections = []
+        missingSections = []
+
+        if self.type == "district":
+            templateSections = ["Get in", "See", "Do", "Buy", "Eat", "Drink", "Sleep", "Connect"]
+        elif self.type == "small city":
+            templateSections = ["Understand", "Get in", "Get around", "See", "Do", "Buy", "Eat", "Drink", "Sleep", "Connect", "Go next"]
+        elif self.type == "big city":
+            templateSections = ["Understand", "Get in", "Get around", "See", "Do", "Learn", "Work", "Buy", "Eat", "Drink", "Sleep", "Stay safe", "Connect", "Cope", "Go next"]
+
+        for templateSection in templateSections:
+            if templateSection in self or templateSection == "See" and "See and Do" in self or templateSection == "Do" and "See and Do" in self:
+                sectionsCount += 1
+            else:
+                missingSections.append(templateSection)
+        return (sectionsCount / len(templateSections), missingSections)
+
+    # all destination articles require certain sections
+    def required_sections_present(article_model, articleType):
+        if articleType is not "district":
+            return "Get in" in self and "Get around" in self and ("See" in self or "See and Do" in self) and "Eat" in self and "Sleep" in self
+        else:
+            return "Get in" in self and ("See" in self or "See and Do" in self) and "Eat" in self and "Sleep" in self
 
 class Section:
     def __init__(self, parent, section, sectionPrefix):
@@ -113,7 +198,7 @@ class Section:
                     newSubsection = Section(self, subsection, newPrefix)
                     if newSubsection.malformed:
                         self.malformed = True
-                    self.subsections += newSection
+                    self.subsections.append(newSection)
 
     # python dicts can't handle '.' characters in key titles -- so we replace those with ';' for storageifiedTitle
     def storageifySectionTitle(sectionTitle):
