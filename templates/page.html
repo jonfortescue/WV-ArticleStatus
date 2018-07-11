@@ -67,9 +67,7 @@
     </table>
     <ul>
       {% for section in sections %}
-        <li>
-          {{ section.title }}
-        </li>
+        {{ section.to_html() | safe }}
       {% endfor %}
     </ul>
   </div>

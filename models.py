@@ -213,11 +213,12 @@ class Section:
                         self.malformed = True
                     self.subsections.append(newSubsection)
 
-    def toHtml(self):
+    def to_html(self):
         html = "\n<li>" + self.title
-        if len(subsections) > 0:
-            html += "\n</ul>"
-            for subsection in subsections:
-                html += subsection.toHtml()
+        if len(self.subsections) > 0:
+            html += "\n<ul>"
+            for subsection in self.subsections:
+                html += subsection.to_html()
             html += "\n</ul>\n"
         html += "</li>"
+        return html

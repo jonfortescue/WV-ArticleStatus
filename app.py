@@ -34,4 +34,4 @@ def pageDisplay(pagetitle):
     title = unUrlizeTitle(pagetitle) # we extract the article title from the url
     page = mongo.db.pages.find_one_or_404({"title": title}) # and then find the database entry or 404 if it doesn't exist
     sections = bsonLoadSections(page['sections'])
-    return render_template("page.html", page=page, url=titleToUrl(title), sections=sections, list=list, sorted=sorted, formatAsPercentage=formatAsPercentage, requiredSections=requiredSections())
+    return render_template("page.html", page=page, url=titleToUrl(title), sections=sections, formatAsPercentage=formatAsPercentage, requiredSections=requiredSections())
