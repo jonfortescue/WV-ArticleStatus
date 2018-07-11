@@ -11,7 +11,7 @@ def ONE_SENTENCE(text):
 statusRegex = re.compile(r'{{(outline|usable|guide|star|disamb|disambig|disambiguation|stub|extra|historical|gallerypageof|title-index page)(district|city|airport|park|diveguide|region|country|continent|itinerary|topic|phrasebook)?(\|(?:subregion=(?:yes|no)|[\w /()-\.]+))?}}', re.I)
 
 def bsonLoadSections(dump):
-    return pickle.loads(dump.decode('latin1'))
+    return pickle.loads(dump.encode('latin1'))
 
 class Article:
     "Articles are basically like special sections"
@@ -179,7 +179,7 @@ class Article:
             return "Get in" in self and ("See" in self or "See and Do" in self) and "Eat" in self and "Sleep" in self
 
     def bsonDumpSections(self):
-        return Binary(pickle.dumps(self.sections))
+        return pickle.dumps(self.sections).decode('latin1')
 
 class Section:
     def __init__(self, parent, section, sectionPrefix):

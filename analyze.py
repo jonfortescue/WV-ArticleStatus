@@ -21,6 +21,10 @@ client = MongoClient()
 db = client.app
 pages = db.pages
 
+def analyze(title):
+    page = pages.find_one({ 'title': title })
+    Article(pages, page['title'], page['text'])
+
 # just loop through and analyze all articles in the database
 def analyze_all():
     cursor = pages.find(no_cursor_timeout=True)
