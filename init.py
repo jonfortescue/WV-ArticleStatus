@@ -13,8 +13,8 @@ sys.setdefaultencoding('utf-8')
 # the file path of the semimonthly dump
 # obtained from https://dumps.wikimedia.org/enwikivoyage/latest/enwikivoyage-latest-pages-articles.xml.bz2
 DUMP_FILE_PATH = "dump/enwikivoyage-latest-pages-articles.xml"
-if not Path(DUMP_FILE_PATH).is_file():
-    print "No dump found. Downloading latest..."
+if not Path(DUMP_FILE_PATH).is_file() or len(sys.argv) > 1 and (sys.argv[1] == "--redownload" or sys.argv[1] == "-r"):
+    print "Downloading latest database dump..."
     compressed_dump_path = "dump/enwikivoyage-latest-pages-articles.xml.bz2"
     urllib.urlretrieve("https://dumps.wikimedia.org/enwikivoyage/latest/enwikivoyage-latest-pages-articles.xml.bz2", compressed_dump_path)
     print "Dump downloaded. Extracting..."

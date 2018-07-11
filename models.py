@@ -1,25 +1,34 @@
+import re
+from pymongo import MongoClient
+from bson.binary import Binary
+import pickle
+import sys
+
 # definitions of "article standards"
 def ONE_SENTENCE(text):
     return len(text) >= 50
 
+statusRegex = re.compile(r'{{(outline|usable|guide|star|disamb|disambig|disambiguation|stub|extra|historical|gallerypageof|title-index page)(district|city|airport|park|diveguide|region|country|continent|itinerary|topic|phrasebook)?(\|(?:subregion=(?:yes|no)|[\w /()-\.]+))?}}', re.I)
+
+def bsonLoadSections(dump):
+    return pickle.loads(dump.decode('latin1'))
+
 class Article:
     "Articles are basically like special sections"
-    statusRegex = re.compile(r'{{(outline|usable|guide|star|disamb|disambig|disambiguation|stub|extra|historical|gallerypageof|title-index page)(district|city|airport|park|diveguide|region|country|continent|itinerary|topic|phrasebook)?(\|(?:subregion=(?:yes|no)|[\w /()-\.]+))?}}', re.I)
 
-    def __init__(self, db, title, url, text):
+    def __init__(self, db, title, text):
         self.title = title
-        self.url = url
         self.text = text
-        (self.status, self.type, self.malformed, self.log, delete) = determine_status_and_type()
+        (self.status, self.type, self.malformed, self.log, delete) = self.determine_status_and_type()
         if delete:
             db.delete_one({'title': self.title})
         else:
             db.update_one( {'title': self.title}, { '$set': {'status': self.status, 'type': self.type, 'malformed': self.malformed} })
-            (self.lead, self.sections, log, self.malformed) = parse_sections()
+            (self.lead, self.sections, log, self.malformed) = self.parse_sections()
             self.log += log
-            db.update_one( {'title': self.title}, { '$set': {'sections': self.sections, 'malformed': self.malformed} })
-            analyze_status(db)
-        print self.log
+            db.update_one( {'title': self.title}, { '$set': {'sections': self.bsonDumpSections(), 'malformed': self.malformed} })
+            self.analyze_status(db)
+        print self.log.strip()
 
     def __contains__(self, item):
         return any([item in section.title for section in self.sections])
@@ -36,26 +45,26 @@ class Article:
             articleStatus = statusTemplateMatch.group(1).lower()
             # we want to remove all disambiguation articles from the database
             if articleStatus == "disamb" or articleStatus == "disambig" or articleStatus == "disambiguation":
-                log += "Article " + title + " is a disambiguation article. Deleting from MongoDB...\n"
+                log += "Article " + self.title + " is a disambiguation article. Deleting from MongoDB...\n"
                 return ('disambiguation', 'disambiguation', False, log, True)
             # we also want to remove gallery articles
             elif articleStatus == "gallerypageof":
-                log += "Article " + title + " is a gallery article. Deleting from MongoDB...\n"
+                log += "Article " + self.title + " is a gallery article. Deleting from MongoDB...\n"
                 return ('gallery', 'gallery', False, log, True)
             # and all title/index pages
             elif articleStatus == "title-index page":
-                log +=  "Article " + title + " is a title/index page. Deleting from MongoDB...\n"
+                log +=  "Article " + self.title + " is a title/index page. Deleting from MongoDB...\n"
                 return ('title/index', 'title/index', False, log, True)
             elif articleStatus == "historical":
-                log += "Article" + title + " is archived as inactive/historical.\n"
+                log += "Article" + self.title + " is archived as inactive/historical.\n"
                 return ('historical', 'historical', False, log, False)
             # next we find stub articles -- stubs don't have an article type, so they get marked as 'stub' for both
             elif articleStatus == "stub":
-                log += "Article " + title + " is a stub.\n"
+                log += "Article " + self.title + " is a stub.\n"
                 return ('stub', 'stub', False, log, False)
             # if the template is malformed...
             elif statusTemplateMatch.group(2) is None:
-                log +=  "Article " + title + " has a malformed status template\n"
+                log +=  "Article " + self.title + " has a malformed status template\n"
                 return ('none', 'none', True, log, False)
             else:
                 if articleStatus == "extra":
@@ -64,8 +73,8 @@ class Article:
                 if (articleType) == "diveguide": # correct dive guide to make it prettier
                     articleType = "dive guide"
                 if articleType == "city":
-                    articleType = determine_city_type()
-                log += "Article " + title + " is a(n) " + articleType + " article of " + articleStatus + " status\n"
+                    articleType = self.determine_city_type()
+                log += "Article " + self.title + " is a(n) " + articleType + " article of " + articleStatus + " status\n"
                 return (articleStatus, articleType, False, log, False)
 
     def parse_sections(self):
@@ -79,6 +88,7 @@ class Article:
                 newSection = Section(self, section, '==')
                 if newSection.malformed:
                     malformed = True
+                self.log += newSection.log
                 sections.append(newSection)
 
         return (lead, sections, log, malformed)
@@ -127,15 +137,15 @@ class Article:
         #       * 75% of sections required by the template are present; all essential sections present
         #   STUB:
         #       * Requirements for OUTLINE are not met
-        if articleType == "district" or articleType == "small city" or articleType == "big city":
+        if self.type == "district" or self.type == "small city" or self.type == "big city":
             # outline
-            tmpasm = template_match_percentage_and_sections_missing()
+            tmpasm = self.template_match_percentage_and_sections_missing()
             templateMatchPercentage = tmpasm[0]
             templateSectionsMissing = tmpasm[1]
-            requiredSectionsPresent = required_sections_present()
+            requiredSectionsPresent = self.required_sections_present()
             leadSectionNotEmpty = ONE_SENTENCE(self.lead)
             #usable
-            
+
             db.update_one( { 'title': self.title }, { '$set': { 'leadSectionNotEmpty': leadSectionNotEmpty,
                                 'templateMatchPercentage': templateMatchPercentage, 'requiredSectionsPresent': requiredSectionsPresent,
                                 'templateSectionsMissing': templateSectionsMissing } } )
@@ -162,11 +172,14 @@ class Article:
         return (sectionsCount / len(templateSections), missingSections)
 
     # all destination articles require certain sections
-    def required_sections_present(article_model, articleType):
-        if articleType is not "district":
+    def required_sections_present(self):
+        if self.type is not "district":
             return "Get in" in self and "Get around" in self and ("See" in self or "See and Do" in self) and "Eat" in self and "Sleep" in self
         else:
             return "Get in" in self and ("See" in self or "See and Do" in self) and "Eat" in self and "Sleep" in self
+
+    def bsonDumpSections(self):
+        return Binary(pickle.dumps(self.sections))
 
 class Section:
     def __init__(self, parent, section, sectionPrefix):
@@ -177,18 +190,18 @@ class Section:
         self.subsections = []
         self.malformed = False
         try:
-            self.title = storageifySectionTitle(section[0:section.index(sectionPrefix)])
+            self.title = section[0:section.index(sectionPrefix)]
             self.text = section[section.index(sectionPrefix):]
         except:
             # TODO: Remove if/else casing -- this is temporary for debugging. All exceptions should be treated as a malformed section
             if '==' in section or 'By train' in section or re.search(r'(Get in|Get around|See|Do|Buy|Eat|Drink|Sleep|Connect|Go next)=', section) is not None:
-                self.log += "!! MALFORMED SECTION !!"
+                self.log += "\t!! MALFORMED SECTION !!\n"
                 self.title = "!! MALFORMED SECTION !!"
                 self.text = section
                 self.malformed = True
             else:
                 print section
-                sys.exit())
+                sys.exit()
         newPrefix = sectionPrefix + r'='
         if newPrefix in section:
             subsectionsSplit = re.split(r'\s' + newPrefix + r'(?=[A-z])(?!-->)', self.text)
@@ -198,8 +211,13 @@ class Section:
                     newSubsection = Section(self, subsection, newPrefix)
                     if newSubsection.malformed:
                         self.malformed = True
-                    self.subsections.append(newSection)
+                    self.subsections.append(newSubsection)
 
-    # python dicts can't handle '.' characters in key titles -- so we replace those with ';' for storageifiedTitle
-    def storageifySectionTitle(sectionTitle):
-        return sectionTitle.replace('.', ';')
+    def toHtml(self):
+        html = "\n<li>" + self.title
+        if len(subsections) > 0:
+            html += "\n</ul>"
+            for subsection in subsections:
+                html += subsection.toHtml()
+            html += "\n</ul>\n"
+        html += "</li>"

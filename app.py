@@ -1,6 +1,7 @@
 from flask import *
 from flask_pymongo import PyMongo
 import sys
+from models import Article, Section, bsonLoadSections
 
 # without this, encoding issues cause errors
 reload(sys)
@@ -15,10 +16,6 @@ def titleToUrl(title): # generate a link to the Wikivoyage article
     return "https://en.wikivoyage.org/wiki/" + title.replace(' ','_')
 def unUrlizeTitle(urlizedTitle): # switch a title from wiki url style to human readable
     return urlizedTitle.replace('_',' ').replace(';', '/')
-def unStorageifySectionTitle(storageifiedTitle):
-    return storageifiedTitle.replace(';','.')
-def sortDictByValue(mydict, valueKey):
-    return [x[0] for x in sorted(mydict.iteritems(), key=lambda (k,v): v[valueKey])]
 def formatAsPercentage(floatingPt):
     return '{0:.0f}%'.format(floatingPt * 100)
 def requiredSections():
@@ -36,4 +33,5 @@ def home():
 def pageDisplay(pagetitle):
     title = unUrlizeTitle(pagetitle) # we extract the article title from the url
     page = mongo.db.pages.find_one_or_404({"title": title}) # and then find the database entry or 404 if it doesn't exist
-    return render_template("page.html", page=page, url=titleToUrl(title), list=list, sorted=sorted, sortDictByValue=sortDictByValue, formatAsPercentage=formatAsPercentage, unStorageifySectionTitle=unStorageifySectionTitle, requiredSections=requiredSections())
+    sections = bsonLoadSections(page['sections'])
+    return render_template("page.html", page=page, url=titleToUrl(title), sections=sections, list=list, sorted=sorted, formatAsPercentage=formatAsPercentage, requiredSections=requiredSections())

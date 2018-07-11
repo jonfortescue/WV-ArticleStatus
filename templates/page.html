@@ -66,16 +66,9 @@
       </tr>
     </table>
     <ul>
-      {% for section in sortDictByValue(page['model'], 'position') %}
+      {% for section in sections %}
         <li>
-          {{ unStorageifySectionTitle(section) }}
-          {% if page['model'][section]['subsections']|length > 0 %}
-            <ul>
-              {% for subsection in sortDictByValue(page['model'][section]['subsections'], 'position') %}
-                <li>{{ unStorageifySectionTitle(subsection) }}</li>
-              {% endfor %}
-            </ul>
-          {% endif %}
+          {{ section.title }}
         </li>
       {% endfor %}
     </ul>
