@@ -139,12 +139,11 @@ class Article:
         #       * Requirements for OUTLINE are not met
         if self.type == "district" or self.type == "small city" or self.type == "big city":
             # outline
-            tmpasm = self.template_match_percentage_and_sections_missing()
-            templateMatchPercentage = tmpasm[0]
-            templateSectionsMissing = tmpasm[1]
+            (templateMatchPercentage, templateSectionsMissing) = self.template_match_percentage_and_sections_missing()
             requiredSectionsPresent = self.required_sections_present()
             leadSectionNotEmpty = ONE_SENTENCE(self.lead)
             #usable
+
 
             db.update_one( { 'title': self.title }, { '$set': { 'leadSectionNotEmpty': leadSectionNotEmpty,
                                 'templateMatchPercentage': templateMatchPercentage, 'requiredSectionsPresent': requiredSectionsPresent,
@@ -211,6 +210,7 @@ class Section:
                     newSubsection = Section(self, subsection, newPrefix)
                     if newSubsection.malformed:
                         self.malformed = True
+                    self.log += newSubsection.log
                     self.subsections.append(newSubsection)
 
     def to_html(self):
