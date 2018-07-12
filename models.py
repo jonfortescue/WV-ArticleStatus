@@ -1,6 +1,4 @@
 import re
-from pymongo import MongoClient
-from bson.binary import Binary
 import pickle
 import sys
 
@@ -8,7 +6,9 @@ import sys
 def ONE_SENTENCE(text):
     return len(text) >= 50
 
-statusRegex = re.compile(r'{{(outline|usable|guide|star|disamb|disambig|disambiguation|stub|extra|historical|gallerypageof|title-index page)(district|city|airport|park|diveguide|region|country|continent|itinerary|topic|phrasebook)?(\|(?:subregion=(?:yes|no)|[\w /()-\.]+))?}}', re.I)
+statusRegex = re.compile(r'{{(outline|usable|guide|star|disamb|disambig|disambiguation|stub|extra|historical|gallerypageof|'
+                         r'title-index page)(district|city|airport|park|diveguide|region|country|continent|itinerary|topic|phrasebook)?'
+                         r'(\|(?:subregion=(?:yes|no)|[\w /()-\.]+))?}}', re.I)
 
 def bsonLoadSections(dump):
     return pickle.loads(dump.encode('latin1'))
@@ -23,10 +23,10 @@ class Article:
         if delete:
             db.delete_one({'title': self.title})
         else:
-            db.update_one( {'title': self.title}, { '$set': {'status': self.status, 'type': self.type, 'malformed': self.malformed} })
+            db.update_one({'title': self.title}, {'$set': {'status': self.status, 'type': self.type, 'malformed': self.malformed}})
             (self.lead, self.sections, log, self.malformed) = self.parse_sections()
             self.log += log
-            db.update_one( {'title': self.title}, { '$set': {'sections': self.bsonDumpSections(), 'malformed': self.malformed} })
+            db.update_one({'title': self.title}, {'$set': {'sections': self.bsonDumpSections(), 'malformed': self.malformed}})
             self.analyze_status(db)
         print self.log.strip()
 
@@ -53,7 +53,7 @@ class Article:
                 return ('gallery', 'gallery', False, log, True)
             # and all title/index pages
             elif articleStatus == "title-index page":
-                log +=  "Article " + self.title + " is a title/index page. Deleting from MongoDB...\n"
+                log += "Article " + self.title + " is a title/index page. Deleting from MongoDB...\n"
                 return ('title/index', 'title/index', False, log, True)
             elif articleStatus == "historical":
                 log += "Article" + self.title + " is archived as inactive/historical.\n"
@@ -64,13 +64,13 @@ class Article:
                 return ('stub', 'stub', False, log, False)
             # if the template is malformed...
             elif statusTemplateMatch.group(2) is None:
-                log +=  "Article " + self.title + " has a malformed status template\n"
+                log += "Article " + self.title + " has a malformed status template\n"
                 return ('none', 'none', True, log, False)
             else:
                 if articleStatus == "extra":
                     articleStatus = "extra-hierarchical"
                 articleType = statusTemplateMatch.group(2).lower()
-                if (articleType) == "diveguide": # correct dive guide to make it prettier
+                if (articleType) == "diveguide":  # correct dive guide to make it prettier
                     articleType = "dive guide"
                 if articleType == "city":
                     articleType = self.determine_city_type()
@@ -94,9 +94,9 @@ class Article:
         return (lead, sections, log, malformed)
 
     def determine_city_type(self):
-        if "==Districts==" in self.text: # only huge cities have districts
+        if "==Districts==" in self.text:  # only huge cities have districts
             return "huge city"
-        elif "==Learn==" in self.text or "==Work==" in self.text or "==Cope==" in self.text: # these are unique to the big city template
+        elif "==Learn==" in self.text or "==Work==" in self.text or "==Cope==" in self.text:  # these are unique to the big city template
             return "big city"
         else:
             return "small city"
@@ -142,12 +142,11 @@ class Article:
             (templateMatchPercentage, templateSectionsMissing) = self.template_match_percentage_and_sections_missing()
             requiredSectionsPresent = self.required_sections_present()
             leadSectionNotEmpty = ONE_SENTENCE(self.lead)
-            #usable
+            # usable
 
-
-            db.update_one( { 'title': self.title }, { '$set': { 'leadSectionNotEmpty': leadSectionNotEmpty,
-                                'templateMatchPercentage': templateMatchPercentage, 'requiredSectionsPresent': requiredSectionsPresent,
-                                'templateSectionsMissing': templateSectionsMissing } } )
+            db.update_one({'title': self.title}, {'$set': {'leadSectionNotEmpty': leadSectionNotEmpty,
+                           'templateMatchPercentage': templateMatchPercentage, 'requiredSectionsPresent': requiredSectionsPresent,
+                           'templateSectionsMissing': templateSectionsMissing}})
 
     # returns a tuple containing the percentage of template article sections that
     # are present in the article model and a list of sections missing from the template
@@ -161,7 +160,8 @@ class Article:
         elif self.type == "small city":
             templateSections = ["Understand", "Get in", "Get around", "See", "Do", "Buy", "Eat", "Drink", "Sleep", "Connect", "Go next"]
         elif self.type == "big city":
-            templateSections = ["Understand", "Get in", "Get around", "See", "Do", "Learn", "Work", "Buy", "Eat", "Drink", "Sleep", "Stay safe", "Connect", "Cope", "Go next"]
+            templateSections = ["Understand", "Get in", "Get around", "See", "Do", "Learn", "Work", "Buy", "Eat", "Drink", "Sleep",
+                                "Stay safe", "Connect", "Cope", "Go next"]
 
         for templateSection in templateSections:
             if templateSection in self or templateSection == "See" and "See and Do" in self or templateSection == "Do" and "See and Do" in self:
@@ -193,7 +193,8 @@ class Section:
             self.text = section[section.index(sectionPrefix):]
         except:
             # TODO: Remove if/else casing -- this is temporary for debugging. All exceptions should be treated as a malformed section
-            if '==' in section or 'By train' in section or re.search(r'(Get in|Get around|See|Do|Buy|Eat|Drink|Sleep|Connect|Go next)=', section) is not None:
+            if '==' in section or 'By train' in section or \
+                    re.search(r'(Get in|Get around|See|Do|Buy|Eat|Drink|Sleep|Connect|Go next)=', section) is not None:
                 self.log += "\t!! MALFORMED SECTION !!\n"
                 self.title = "!! MALFORMED SECTION !!"
                 self.text = section

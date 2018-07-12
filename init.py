@@ -19,7 +19,7 @@ if not Path(DUMP_FILE_PATH).is_file() or len(sys.argv) > 1 and (sys.argv[1] == "
     urllib.urlretrieve("https://dumps.wikimedia.org/enwikivoyage/latest/enwikivoyage-latest-pages-articles.xml.bz2", compressed_dump_path)
     print "Dump downloaded. Extracting..."
     with open(DUMP_FILE_PATH, 'wb') as dump_file, bz2.BZ2File(compressed_dump_path, 'rb') as dump_bz2:
-        for data in iter(lambda : dump_bz2.read(100 * 1024), b''):
+        for data in iter(lambda: dump_bz2.read(100 * 1024), b''):
             dump_file.write(data)
     print "Dump extracted."
 
@@ -29,7 +29,7 @@ client = MongoClient()
 db = client.app
 pages = db.pages
 print "Erasing MongoDB before update..."
-pages.remove() # remove everything before we rebuild
+pages.remove()  # remove everything before we rebuild
 print "Erase complete."
 
 print "Building database..."

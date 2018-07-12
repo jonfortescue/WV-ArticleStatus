@@ -1,20 +1,10 @@
-import re
 from pymongo import MongoClient
-from models import Article, Section
+from models import Article
 import sys
 
 # without this, encoding issues cause errors
 reload(sys)
 sys.setdefaultencoding('utf-8')
-
-# windows compat
-if sys.platform == "win32":
-    try:
-        import uniconsole
-    except ImportError:
-        sys.exc_clear()  # could be just pass, of course
-    else:
-        del uniconsole  # reduce pollution, not needed anymore
 
 # connect with mongodb
 client = MongoClient()
@@ -22,7 +12,7 @@ db = client.app
 pages = db.pages
 
 def analyze(title):
-    page = pages.find_one({ 'title': title })
+    page = pages.find_one({'title': title})
     Article(pages, page['title'], page['text'])
 
 # just loop through and analyze all articles in the database
