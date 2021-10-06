@@ -1,0 +1,33 @@
+﻿@model IEnumerable<ArticleModel>
+@{
+    ViewData["Title"] = "Wikivoyage Article Status Analyzer";
+}
+
+<div class="container">
+    <div class="row center">
+      <h1>@ViewData["Title"]</h1>
+      <form action="javascript:void(0)" onsubmit="javacript:gotopage(document.getElementById('search').value)">
+        <input type="text" id="search" name="search" />
+        <input type="submit" value="Search">
+      </form>
+    </div>
+    <div class="row">
+      <div class="col-sm-6">
+        <h2>Malformed Articles</h2>
+        <ul>
+            @{
+                if (@Model.Count() > 0)
+                {
+                    foreach (var article in @Model)
+                    {
+                        <li><a target="_blank" href="/Article/@(article.Title)">@(article.Title)</a></li>
+                    }
+                }
+                else
+                {
+                    <li>No malformed articles!</li>
+                }
+            }
+        </ul>
+      </div>
+    </div>
