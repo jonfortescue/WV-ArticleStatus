@@ -11,11 +11,11 @@
     <h4>ArticleModel</h4>
     <hr />
     <dl class="row">
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Text)
+        <dt class ="col-sm-2">
+            Link
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Text)
+            <a href="https://en.wikivoyage.org/wiki/@Model.Title.Replace(" ", "_").Replace(":", "/")">@Model.Title on Wikivoyage</a>
         </dd>
         <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Status)
@@ -29,6 +29,92 @@
         <dd class = "col-sm-10">
             @Html.DisplayFor(model => model.Type)
         </dd>
+        @{
+            if (Model.RegionsOrDistricts.Count > 0)
+            {
+                <dt class="col-sm-2">
+                    @{
+                        if (Model.Type == "huge city")
+                        {
+                            @Html.Raw("Districts")
+                    }
+                        else
+                        {
+                            @Html.Raw("Regions")
+                        }
+                    }
+                </dt>
+                <dd class="col-sm-10">
+                    @{
+                        <ul>
+                            @{
+                                foreach (var regionOrDistrict in Model.RegionsOrDistricts)
+                                {
+                                    <li><a href="/Article/@regionOrDistrict">@regionOrDistrict</a></li>
+                                }
+                            }
+                        </ul>
+                    }
+                </dd>
+            }
+        }
+        @{
+            if (Model.Cities.Count > 0)
+            {
+                <dt class="col-sm-2">
+                    Cities
+                </dt>
+                <dd class="col-sm-10">
+                    @{
+                        <ul>
+                            @{
+                                foreach (var city in Model.Cities)
+                                {
+                                    <li><a href="/Article/@city">@city</a></li>
+                                }
+                            }
+                        </ul>
+                    }
+                </dd>
+            }
+        }
+        @{
+            if (Model.OtherDestinations.Count > 0)
+            {
+                <dt class="col-sm-2">
+                    Other destinations
+                </dt>
+                <dd class="col-sm-10">
+                    @{
+                        <ul>
+                            @{
+                                foreach (var destination in Model.OtherDestinations)
+                                {
+                                    <li><a href="/Article/@destination">@destination</a></li>
+                                }
+                            }
+                        </ul>
+                    }
+                </dd>
+            }
+        }
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.Sections)
+        </dt>
+        <dd class="col-sm-10">
+            <ul>
+                @foreach (var section in Model.Sections)
+                {
+                    @Html.Raw(section.ToHtml());
+                }
+            </ul>
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.Text)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.Text)
+        </dd>
         <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Malformed)
         </dt>
@@ -40,12 +126,6 @@
         </dt>
         <dd class = "col-sm-10">
             @Html.DisplayFor(model => model.Log)
-        </dd>
-        <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Include)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Include)
         </dd>
     </dl>
 </div>

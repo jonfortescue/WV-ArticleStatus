@@ -27,7 +27,7 @@ namespace WV_ArticleStatus
         {
             services.AddControllersWithViews();
 
-            services.AddDbContext<WV_ArticleStatusContext>(options =>
+            services.AddDbContext<ArticlesContext>(options =>
                     options.UseSqlServer(Configuration.GetConnectionString("WV_ArticleStatusContext")));
         }
 

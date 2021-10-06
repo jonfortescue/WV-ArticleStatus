@@ -12,9 +12,9 @@ namespace WV_ArticleStatus.Controllers
 {
     public class ArticlesController : Controller
     {
-        private readonly WV_ArticleStatusContext _context;
+        private readonly ArticlesContext _context;
 
-        public ArticlesController(WV_ArticleStatusContext context)
+        public ArticlesController(ArticlesContext context)
         {
             _context = context;
         }
@@ -27,7 +27,7 @@ namespace WV_ArticleStatus.Controllers
             return View(titleList);
         }
 
-        // GET: Articles/Details/5
+        // GET: Article/5
         public async Task<IActionResult> Details(string id)
         {
             if (id == null)

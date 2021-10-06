@@ -13,14 +13,14 @@ namespace WV_ArticleStatus.Data
 {
     public static class ArticlesInitializer
     {
-        public static void Initialize(WV_ArticleStatusContext context)
+        public static void Initialize(ArticlesContext context)
         {
             context.Database.EnsureCreated();
 
             if (context.Articles.Any())
             {
-                context.Articles.RemoveRange(context.Articles);
-                context.SaveChanges();
+                //context.Database.EnsureDeleted();
+                //context.Database.EnsureCreated();
                 return;
             }
 
@@ -49,8 +49,10 @@ namespace WV_ArticleStatus.Data
                     !elements.Any(e => e.Name == "{http://www.mediawiki.org/xml/export-0.10/}redirect") &&
                     elements.Any(e => e.Name == "{http://www.mediawiki.org/xml/export-0.10/}revision"))
                 {
+                    title = title.Replace("/", ":");
                     var article = new ArticleModel(title, elements.First(e => e.Name == "{http://www.mediawiki.org/xml/export-0.10/}revision")
-                        .Elements().First(e => e.Name == "{http://www.mediawiki.org/xml/export-0.10/}text").Value);
+                        .Elements().First(e => e.Name == "{http://www.mediawiki.org/xml/export-0.10/}text").Value/*,*/
+                        /*new List<ArticleLink>(), new List<ArticleLink>(), new List<ArticleLink>(), new List<ArticleLink>()*/);
                     if (articles.Any(e => e.Title == title))
                     {
                         throw new Exception($"Article {title} is a duplicate.");
@@ -60,6 +62,11 @@ namespace WV_ArticleStatus.Data
                         articles.Add(article);
                     }
                 }
+            }
+
+            foreach (ArticleModel article in articles)
+            {
+                article.GetLinkedArticles(articles);
             }
 
             context.Articles.AddRange(articles);

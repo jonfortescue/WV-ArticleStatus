@@ -29,7 +29,7 @@ namespace WV_ArticleStatus
                 var services = scope.ServiceProvider;
                 try
                 {
-                    var context = services.GetRequiredService<WV_ArticleStatusContext>();
+                    var context = services.GetRequiredService<ArticlesContext>();
                     ArticlesInitializer.Initialize(context);
                 }
                 catch (Exception ex)
