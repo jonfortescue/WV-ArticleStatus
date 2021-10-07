@@ -1,7 +1,7 @@
 ﻿@model WV_ArticleStatus.Models.ArticleModel
 
 @{
-    ViewData["Title"] = "Details";
+    ViewData["Title"] = Model.Title;
     Layout = "~/Views/Shared/_Layout.cshtml";
 }
 
@@ -22,6 +22,12 @@
         </dt>
         <dd class = "col-sm-10">
             @Html.DisplayFor(model => model.Status)
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.AnalyzedStatus)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.AnalyzedStatus)
         </dd>
         <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Type)
@@ -110,12 +116,6 @@
             </ul>
         </dd>
         <dt class = "col-sm-2">
-            @Html.DisplayNameFor(model => model.Text)
-        </dt>
-        <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Text)
-        </dd>
-        <dt class = "col-sm-2">
             @Html.DisplayNameFor(model => model.Malformed)
         </dt>
         <dd class = "col-sm-10">
@@ -125,7 +125,15 @@
             @Html.DisplayNameFor(model => model.Log)
         </dt>
         <dd class = "col-sm-10">
-            @Html.DisplayFor(model => model.Log)
+            <code>
+                @Html.Raw((Model.Log?.Replace("\n", "<br/>")) ?? "")
+            </code>
+        </dd>
+        <dt class = "col-sm-2">
+            @Html.DisplayNameFor(model => model.Text)
+        </dt>
+        <dd class = "col-sm-10">
+            @Html.DisplayFor(model => model.Text)
         </dd>
     </dl>
 </div>

@@ -17,7 +17,7 @@ namespace WV_ArticleStatus.Models
         private static Regex StatusRegex = new Regex(@"{{(outline|usable|useable|guide|star|disamb|disambig|disambiguation|stub|extra|historical|gallerypageof|"
                                                    + @"title-index page)(district|city|ruralarea|airport|park|event|diveguide|region|country|continent|itinerary|topic|phrasebook)?"
                                                    + @"(\|(?:subregion=(?:yes|no)|[\w /()-\.]+))?}}", RegexOptions.IgnoreCase);
-        
+
         [Key]
         public string Title { get; set; }
 
@@ -27,6 +27,9 @@ namespace WV_ArticleStatus.Models
         public string Type { get; set; }
         public bool Malformed { get; set; } = false;
         public string Log { get; set; }
+
+        public double TemplateMatchPercentage { get; set; }
+        public string TemplateSectionsMissing { get; set; }
 
         public List<string> RegionsOrDistricts { get; set; } = new();
         public List<string> Cities { get; set; } = new();
@@ -226,10 +229,6 @@ namespace WV_ArticleStatus.Models
                         else
                         {
                             Log += "Cities section not found.\n";
-                            if (Status != "extra-hierarchical")
-                            {
-                                Malformed = true;
-                            }
                         }
 
                         Section destinationsSection = Sections.FirstOrDefault(s => ArticleHeaders.OTHER_DESTINATIONS(s.Title));
@@ -273,21 +272,20 @@ namespace WV_ArticleStatus.Models
         //CITY
         //For city articles, the following criterion is used:
         //STAR:
-        //      * An SVG map file is detected
         //      * No MOS deviations
         //      * Number of (non-map photos) > 1; preferably 2-3
         //      + All districts are GUIDE status
         //      * All requirements for GUIDE are met
         //GUIDE:
-        //      * Understand section has at least 250 words of prose (N/A for districts)
-        //      * Eat/Drink/Sleep sections all meet 7(+/-)2 rule. If there are >9 entries,
-        //the entries are divided up into multiple lists (Splurge/Mid-range/Budget)
+        //      * Understand section has at least 100 words of prose (N/A for districts)
+        //      * See/Do/Eat/Drink/Sleep sections all meet 7(+/-)2 rule. If there are >9 entries,
+        //          the entries are divided up into multiple lists (Splurge/Mid-range/Budget)
         //      * MOS deviations at 19:1 ratio (19 correct MOS implementations for every one incorrect)
-        //      * 60% of listings have geocoordiantes
         //      * Get in section has >=2 subsections with prose
-        //      * Get around section has at least 250 words of prose and/or >=2 subsections with prose (N/A for districts)
+        //      * Get around section has at least 100 words of prose and/or >=2 subsections with prose (N/A for districts)
         //      * Go next has >=3 bullet points with appropriate one-liner descriptions (N/A for districts)
-        //      * All sections have at least 50 words of prose
+        //      * 50% of listings have geocoordinates
+        //      * All sections have at least 25 words of prose
         //      + All districts are USABLE status
         //      * All requirements for USABLE are met
         //USABLE:
@@ -297,11 +295,14 @@ namespace WV_ArticleStatus.Models
         //      * All requirements for OUTLINE are met
         //OUTLINE:
         //      * Lead section has at least one sentence (50 characters)
-        //      * 75% of sections required by the template are present; all essential sections present
+        //      * 70% of sections required by the template are present; all essential sections present
         //STUB:
         //      * Requirements for OUTLINE are not met
-        public void AnalyzeStatus()
+        public void AnalyzeStatus(IEnumerable<ArticleModel> articles)
         {
+            bool requiredSectionsPresent = RequiredSectionsPresent();
+            TemplateMatchPercentageAndSectionsMissing();
+
             switch (Type)
             {
                 case "district":
@@ -309,12 +310,80 @@ namespace WV_ArticleStatus.Models
                 case "big city":
                 case "huge city":
                 case "rural area":
+                    if (Lead.Length < ONE_SENTENCE_LENGTH || TemplateMatchPercentage < 0.70 || !requiredSectionsPresent)
+                    {
+                        AnalyzedStatus = "stub";
+                    }
+                    else if (Sections.First(s => ArticleHeaders.GET_IN(s.Title)).Text.Length == 0
+                        || !Sections.First(s => ArticleHeaders.EAT(s.Title)).AtLeastOneListingWithContactInfo()
+                        || !Sections.First(s => ArticleHeaders.SLEEP(s.Title)).AtLeastOneListingWithContactInfo()
+                        || Sections.First(s => ArticleHeaders.SEE(s.Title)).NumberOfListings == 0)
+                    {
+                        AnalyzedStatus = "outline";
+                    }
+                    else if ((Sections.FirstOrDefault(s => ArticleHeaders.UNDERSTAND(s.Title))?.Words ?? 0) < 100
+                        || !(Sections.FirstOrDefault(s => ArticleHeaders.SEE(s.Title))?.SectionMeets7PlusOrMinus2Rule() ?? false)
+                        || !(Sections.FirstOrDefault(s => ArticleHeaders.DO(s.Title))?.SectionMeets7PlusOrMinus2Rule() ?? false)
+                        || !(Sections.FirstOrDefault(s => ArticleHeaders.EAT(s.Title))?.SectionMeets7PlusOrMinus2Rule() ?? false)
+                        || !(Sections.FirstOrDefault(s => ArticleHeaders.DRINK(s.Title))?.SectionMeets7PlusOrMinus2Rule() ?? false)
+                        || !(Sections.FirstOrDefault(s => ArticleHeaders.SLEEP(s.Title))?.SectionMeets7PlusOrMinus2Rule() ?? false)
+                        || (Sections.FirstOrDefault(s => ArticleHeaders.GET_IN(s.Title))?.NumberOfSubsectionsWithProse() ?? 0) < 2
+                        || (Type != "district" && (Sections.FirstOrDefault(s => ArticleHeaders.GET_AROUND(s.Title))?.Words ?? 0) < 100 &&
+                                (Sections.FirstOrDefault(s => ArticleHeaders.GET_AROUND(s.Title))?.NumberOfSubsectionsWithProse() ?? 0) < 2)
+                        || Type != "huge city" && Sections.Sum(s => s.NumberOfListingsWithGeoCoordinates()) / Sections.Sum(s => s.NumberOfListings) < 0.50
+                        || Type != "district" && (Sections.FirstOrDefault(s => ArticleHeaders.GO_NEXT(s.Title))?.Text.Split('*').Length ?? 0) < 3
+                        || Sections.Any(s => s.Words < 25)
+                        || (Type == "huge city" && RegionsOrDistricts.Any(d => (articles.FirstOrDefault(a => a.Title == d)?.Status ?? "") == "outline"
+                                || (articles.FirstOrDefault(a => a.Title == d)?.Status ?? "") == "stub"))
+                        )
+                    {
+                        AnalyzedStatus = "usable";
+                    }
+                    else if (!Text.Contains("{{mapframe}}")
+                        || !Text.Contains("[[File:")
+                        || (Type == "huge city" && RegionsOrDistricts.Any(d => (articles.FirstOrDefault(a => a.Title == d)?.Status ?? "") == "usable" ||
+                            (articles.FirstOrDefault(a => a.Title == d)?.Status ?? "") == "outline" || (articles.FirstOrDefault(a => a.Title == d)?.Status ?? "") == "stub"))
+                        )
+                    {
+                        AnalyzedStatus = "guide";
+                    }
+                    else
+                    {
+                        AnalyzedStatus = "star";
+                    }
+                    bool getAroundRequirementsMet = Type != "district" || (Sections.FirstOrDefault(s => ArticleHeaders.GET_AROUND(s.Title))?.Words ?? 0) >= 250 ||
+                        (Sections.FirstOrDefault(s => ArticleHeaders.GET_AROUND(s.Title))?.NumberOfSubsectionsWithProse() ?? 0) >= 2;
+                    bool usableDistrictRequirementsMet = Type != "huge city" || RegionsOrDistricts.All(d => (articles.FirstOrDefault(a => a.Title == d)?.Status ?? "") != "outline"
+                        && (articles.FirstOrDefault(a => a.Title == d)?.Status ?? "") != "stub");
+                    bool guideDistrictRequirementsMet = Type != "huge city" || RegionsOrDistricts.All(d => (articles.FirstOrDefault(a => a.Title == d)?.Status ?? "") != "usable" &&
+                        (articles.FirstOrDefault(a => a.Title == d)?.Status ?? "") != "outline" && (articles.FirstOrDefault(a => a.Title == d)?.Status ?? "") != "stub");
 
+                    Log += $"\nLead > One sentence: {Lead.Length >= ONE_SENTENCE_LENGTH}\nTemplate match percentage: {TemplateMatchPercentage * 100}%\n" +
+                        $"Required sections present: {requiredSectionsPresent}\nTemplate sections missing: {string.Join(", ", TemplateSectionsMissing)}\n" +
+                        $"Get in section not empty: {(Sections.FirstOrDefault(s => ArticleHeaders.GET_IN(s.Title))?.Text.Length ?? 0) > 0}\n" +
+                        $"Eat has one listing w/ contact info: {Sections.FirstOrDefault(s => ArticleHeaders.EAT(s.Title))?.AtLeastOneListingWithContactInfo() ?? false}\n" +
+                        $"Sleep has one listing w/ contact info: {Sections.FirstOrDefault(s => ArticleHeaders.SLEEP(s.Title))?.AtLeastOneListingWithContactInfo() ?? false}\n" +
+                        $"Percentage of Listings with geocoordinates: {Sections.Sum(s => s.NumberOfListingsWithGeoCoordinates()) / Sections.Sum(s => s.NumberOfListings) * 100}%\n" +
+                        $"See has at least one listing: {(Sections.FirstOrDefault(s => ArticleHeaders.SEE(s.Title))?.NumberOfListings ?? 0) > 0}\n" +
+                        $"Understand word count: {Sections.FirstOrDefault(s => ArticleHeaders.UNDERSTAND(s.Title))?.Words ?? 0}\n" +
+                        $"See meets 7+/-2 rule: {Sections.FirstOrDefault(s => ArticleHeaders.SEE(s.Title))?.SectionMeets7PlusOrMinus2Rule() ?? false}\n" +
+                        $"Do meets 7+/-2 rule: {Sections.FirstOrDefault(s => ArticleHeaders.DO(s.Title))?.SectionMeets7PlusOrMinus2Rule() ?? false}\n" +
+                        $"Eat meets 7+/-2 rule: {Sections.FirstOrDefault(s => ArticleHeaders.EAT(s.Title))?.SectionMeets7PlusOrMinus2Rule() ?? false}\n" +
+                        $"Drink meets 7+/-2 rule: {Sections.FirstOrDefault(s => ArticleHeaders.DRINK(s.Title))?.SectionMeets7PlusOrMinus2Rule() ?? false}\n" +
+                        $"Sleep meets 7+/-2 rule: {Sections.FirstOrDefault(s => ArticleHeaders.SLEEP(s.Title))?.SectionMeets7PlusOrMinus2Rule() ?? false}\n" +
+                        $"Get in subsections with prose: {Sections.FirstOrDefault(s => ArticleHeaders.GET_IN(s.Title))?.NumberOfSubsectionsWithProse() ?? 0}\n" +
+                        $"Get around requirements met: {getAroundRequirementsMet}\n" +
+                        $"Go next number of destinations: {Sections.FirstOrDefault(s => ArticleHeaders.GO_NEXT(s.Title))?.Text.Split('*').Length}\n" +
+                        $"All sections have more than 25 words: {Sections.All(s => s.Words >= 25)}\n" +
+                        $"Usable districts requirement met: {usableDistrictRequirementsMet}\n" +
+                        $"Map present: {Text.Contains("{{mapframe}}")}\n" +
+                        $"Image present: {Text.Contains("[[File:")}\n" +
+                        $"Guide districts requirement met: {guideDistrictRequirementsMet}\n";
                     break;
             }
         }
 
-        private (double matchPercentage, List<string> sectionsMissing) TemplateMatchPercentageAndSectionsMissing()
+        private void TemplateMatchPercentageAndSectionsMissing()
         {
             double sectionsCount = 0.0;
             List<Func<string, bool>> templateSections = new();
@@ -334,7 +403,7 @@ namespace WV_ArticleStatus.Models
                     break;
                 case "big city":
                     templateSections.AddRange(new Func<string, bool>[] { ArticleHeaders.UNDERSTAND, ArticleHeaders.GET_IN, ArticleHeaders.GET_AROUND,
-                        ArticleHeaders.SEE, ArticleHeaders.DISTRICTS, ArticleHeaders.LEARN, ArticleHeaders.WORK, ArticleHeaders.BUY, ArticleHeaders.EAT,
+                        ArticleHeaders.SEE, ArticleHeaders.DO, ArticleHeaders.LEARN, ArticleHeaders.WORK, ArticleHeaders.BUY, ArticleHeaders.EAT,
                         ArticleHeaders.DRINK, ArticleHeaders.SLEEP, ArticleHeaders.STAY_SAFE, ArticleHeaders.CONNECT, ArticleHeaders.COPE, ArticleHeaders.GO_NEXT });
                     templateSubsections.Add(ArticleHeaders.GET_IN, ArticleHeaders.SubsectionHeaders[ArticleHeaders.GET_IN]);
                     templateSubsections.Add(ArticleHeaders.DO, ArticleHeaders.SubsectionHeaders[ArticleHeaders.DO]);
@@ -359,17 +428,38 @@ namespace WV_ArticleStatus.Models
 
             foreach (Func<string, bool> templateSection in templateSections)
             {
-                if (Sections.Any(s => templateSection(Title)))
+                if (Sections.Any(s => templateSection(s.Title)))
                 {
                     sectionsCount++;
                 }
                 else
                 {
-                    missingSections.Add(nameof(templateSection));
+                    missingSections.Add(ArticleHeaders.FuncToString[templateSection]);
                 }
             }
 
-            return (sectionsCount / templateSections.Count, missingSections);
+            TemplateMatchPercentage = sectionsCount / (templateSections.Count == 0 ? 1 : templateSections.Count);
+            TemplateSectionsMissing = string.Join(", ", missingSections);
+        }
+
+        public bool RequiredSectionsPresent()
+        {
+            bool correct = Sections.Any(s => ArticleHeaders.GET_IN(s.Title)) && Sections.Any(s => ArticleHeaders.SEE(s.Title)) && Sections.Any(s => ArticleHeaders.SEE(s.Title))
+                && Sections.Any(s => ArticleHeaders.EAT(s.Title)) && Sections.Any(s => ArticleHeaders.SLEEP(s.Title));
+            if (Type != "district")
+            {
+                correct = correct && Sections.Any(s => ArticleHeaders.GET_AROUND(s.Title));
+            }
+            if (Type == "huge city")
+            {
+                correct = correct && Sections.Any(s => ArticleHeaders.DISTRICTS(s.Title));
+            }
+            if (Type == "region")
+            {
+                correct = correct && (Sections.Any(s => ArticleHeaders.REGIONS(s.Title)) || Sections.Any(s => ArticleHeaders.CITIES(s.Title)));
+            }
+
+            return correct;
         }
     }
 
@@ -388,14 +478,25 @@ namespace WV_ArticleStatus.Models
             Parent = parent;
             try
             {
-                Title = text.Substring(0, text.IndexOf(sectionPrefix)).Trim();
-                Text = text.Substring(text.IndexOf(sectionPrefix));
+                Title = text[0..text.IndexOf(sectionPrefix)].Trim();
+                Text = text[text.IndexOf(sectionPrefix)..];
             }
             catch
             {
                 Title = "!! MALFORMED SECTION !!";
                 Malformed = true;
                 return;
+            }
+
+            Regex listingsRegex = new(@"{{(?<type>listing|see|do|buy|eat|drink|sleep|go)");
+            var listings = listingsRegex.Split(Text);
+            for (int i = 1; i < listings.Length - 1; i += 2)
+            {
+                Listing listing = new(listings[i], listings[i + 1]);
+                if (!string.IsNullOrWhiteSpace(listing.Name))
+                {
+                    Listings.Add(listing);
+                }
             }
 
             string newPrefix = $"{sectionPrefix}=";
@@ -418,6 +519,49 @@ namespace WV_ArticleStatus.Models
             }
         }
 
+        public int Words => Text.Split(' ').Length;
+        public int NumberOfListings => Listings.Count + (Text.Contains("{{seeDistricts}}", StringComparison.OrdinalIgnoreCase) ? 1 : 0);
+
+        public bool AtLeastOneListingWithContactInfo()
+        {
+            return Listings.Any(l => !string.IsNullOrEmpty(l.Phone) || !string.IsNullOrEmpty(l.Email) || !string.IsNullOrEmpty(l.Url))
+                || Text.Contains("{{seeDistricts}}", StringComparison.OrdinalIgnoreCase);
+        }
+
+        public double NumberOfListingsWithGeoCoordinates()
+        {
+            if (Text.Contains("{{seeDistricts}}", StringComparison.OrdinalIgnoreCase))
+            {
+                return 1;
+            }
+            return Listings.Where(l => l.Lat > double.MinValue && l.Long > double.MinValue).Count();
+        }
+
+        public int NumberOfSubsectionsWithProse()
+        {
+            return Subsections.Count(s => s.Text.Length > 0);
+        }
+
+        public bool SectionMeets7PlusOrMinus2Rule()
+        {
+            if (Text.Contains("{{seeDistricts}}", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            if (Listings.Count > 9 && Subsections.Count > 0)
+            {
+                int numSubsections = Subsections.Count;
+                numSubsections += Lead.Contains("{{") ? 1 : 0;
+
+                int average = Listings.Count / numSubsections;
+                return average <= 9;
+            }
+            else
+            {
+                return Listings.Count >= 5 && Listings.Count <= 9;
+            }
+        }
+
         public string ToHtml()
         {
             string html = $"\n<li>{Title}";
@@ -437,7 +581,58 @@ namespace WV_ArticleStatus.Models
 
     public class Listing
     {
+        public Listing(string type, string text)
+        {
+            Type = type;
+            Regex listingRegex = new(@"(?<key>\w+)=(?<value>[^\|\n]{2,})(?:\s*\|\s*|\s*}})");
+            var matches = listingRegex.Matches(text);
+            foreach (Match match in matches)
+            {
+                if (string.Equals(match.Groups["key"].Value, "type", StringComparison.OrdinalIgnoreCase))
+                {
+                    Type = match.Groups["value"].Value;
+                }
+                else if (string.Equals(match.Groups["key"].Value, "name", StringComparison.OrdinalIgnoreCase))
+                {
+                    Name = match.Groups["value"].Value;
+                }
+                else if (string.Equals(match.Groups["key"].Value, "phone", StringComparison.OrdinalIgnoreCase))
+                {
+                    Phone = match.Groups["value"].Value;
+                }
+                else if (string.Equals(match.Groups["key"].Value, "email", StringComparison.OrdinalIgnoreCase))
+                {
+                    Email = match.Groups["value"].Value;
+                }
+                else if (string.Equals(match.Groups["key"].Value, "hours", StringComparison.OrdinalIgnoreCase))
+                {
+                    Hours = match.Groups["value"].Value;
+                }
+                else if (string.Equals(match.Groups["key"].Value, "url", StringComparison.OrdinalIgnoreCase))
+                {
+                    Url = match.Groups["value"].Value;
+                }
+                else if (string.Equals(match.Groups["key"].Value, "lat", StringComparison.OrdinalIgnoreCase))
+                {
+                    _ = double.TryParse(match.Groups["value"].Value, out double lat);
+                    Lat = lat;
+                }
+                else if (string.Equals(match.Groups["key"].Value, "long", StringComparison.OrdinalIgnoreCase))
+                {
+                    _ = double.TryParse(match.Groups["value"].Value, out double @long);
+                    Long = @long;
+                }
+            }
+        }
 
+        public string Type { get; set; }
+        public string Name { get; set; }
+        public string Phone { get; set; }
+        public string Email { get; set; }
+        public string Hours { get; set; }
+        public string Url { get; set; }
+        public double Lat { get; set; } = double.MinValue;
+        public double Long { get; set; } = double.MinValue;
     }
 
     public static class ArticleHeaders
@@ -457,13 +652,13 @@ namespace WV_ArticleStatus.Models
         public static Func<string, bool> GET_AROUND = n => n == "Get around";
         public static Func<string, bool> WAIT = n => n == "Wait";
         public static Func<string, bool> GO_WALK_DRIVE = n => n == "Go" || n == "Walk" || n == "Drive";
-        public static Func<string, bool> SEE = n => n == "See" || n == "See and Do";
-        public static Func<string, bool> DO = n => n == "Do" || n == "See and Do";
+        public static Func<string, bool> SEE = n => n == "See" || n == "See and do";
+        public static Func<string, bool> DO = n => n == "Do" || n == "See and do";
         public static Func<string, bool> LEARN = n => n == "Learn";
         public static Func<string, bool> WORK = n => n == "Work";
         public static Func<string, bool> BUY = n => n == "Buy";
-        public static Func<string, bool> EAT = n => n == "Eat";
-        public static Func<string, bool> DRINK = n => n == "Drink";
+        public static Func<string, bool> EAT = n => n == "Eat" || n == "Eat and drink";
+        public static Func<string, bool> DRINK = n => n == "Drink" || n == "Eat and drink";
         public static Func<string, bool> SLEEP = n => n == "Sleep";
         public static Func<string, bool> STAY_SAFE = n => n == "Stay safe";
         public static Func<string, bool> CONNECT = n => n == "Connect";
@@ -472,6 +667,35 @@ namespace WV_ArticleStatus.Models
         public static Func<string, bool> NEARBY = n => n == "Nearby";
         public static Func<string, bool> PRONUNCIATION_GUIDE = n => n == "Pronunciation guide";
         public static Func<string, bool> PHRASE_LIST = n => n == "Phrase list";
+
+        public static Dictionary<Func<string, bool>, string> FuncToString = new()
+        {
+            { DISTRICTS, "Districts" },
+            { UNDERSTAND, "Understand" },
+            { PREPARE, "Prepare" },
+            { FLIGHTS, "Flights" },
+            { TALK, "Talk" },
+            { GET_IN, "Get in" },
+            { FEES_AND_PERMITS, "Fees and permits" },
+            { GET_AROUND, "Get around" },
+            { WAIT, "Wait" },
+            { GO_WALK_DRIVE, "Go/Walk/Drive" },
+            { SEE, "See" },
+            { DO, "Do" },
+            { LEARN, "Learn" },
+            { WORK, "Work" },
+            { BUY, "Buy" },
+            { EAT, "Eat" },
+            { DRINK, "Drink" },
+            { SLEEP, "Sleep" },
+            { STAY_SAFE, "Stay safe" },
+            { CONNECT, "Connect" },
+            { COPE, "Cope" },
+            { GO_NEXT, "Go next" },
+            { NEARBY, "Nearby" },
+            { PRONUNCIATION_GUIDE, "Pronunciation guide" },
+            { PHRASE_LIST, "Phrase list" },
+        };
 
         public static Dictionary<Func<string, bool>, List<string>> SubsectionHeaders = new()
         {

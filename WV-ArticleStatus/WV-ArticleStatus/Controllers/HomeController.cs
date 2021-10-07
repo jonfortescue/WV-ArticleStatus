@@ -33,6 +33,14 @@ namespace WV_ArticleStatus.Controllers
             return View();
         }
 
+        public IActionResult AnalysisDiffers()
+        {
+            var analysisDiffersArticles = _context.Articles.Where(
+                a => a.Status != a.AnalyzedStatus && (a.Type == "district" || a.Type == "small city" || a.Type == "big city" || a.Type == "rural area" || a.Type == "huge city"))
+                .OrderBy(a => a.Status).ThenBy(a => a.Title);
+            return View(analysisDiffersArticles);
+        }
+
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {

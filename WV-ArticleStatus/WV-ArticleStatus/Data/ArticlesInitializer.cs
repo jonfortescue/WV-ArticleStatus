@@ -19,9 +19,9 @@ namespace WV_ArticleStatus.Data
 
             if (context.Articles.Any())
             {
-                //context.Database.EnsureDeleted();
-                //context.Database.EnsureCreated();
-                return;
+                context.Database.EnsureDeleted();
+                context.Database.EnsureCreated();
+                //return;
             }
 
             string dumpFilePath = "dump/enwikivoyage-latest-pages-articles.xml";
@@ -67,6 +67,7 @@ namespace WV_ArticleStatus.Data
             foreach (ArticleModel article in articles)
             {
                 article.GetLinkedArticles(articles);
+                article.AnalyzeStatus(articles);
             }
 
             context.Articles.AddRange(articles);

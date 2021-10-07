@@ -1,0 +1,54 @@
+﻿@model IEnumerable<ArticleModel>
+
+@{
+    ViewData["Title"] = "AnalysisDiffers";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<h1>AnalysisDiffers</h1>
+
+<p>
+    <b>Count: @(Model.Count())</b>
+</p>
+<table class="table">
+    <thead>
+        <tr>
+            <th>
+                @Html.DisplayNameFor(model => model.Title)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Status)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.AnalyzedStatus)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Type)
+            </th>
+            <th>
+                @Html.DisplayNameFor(model => model.Malformed)
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+@foreach (var item in Model) {
+        <tr>
+            <td>
+                <a href="/Article/@item.Title">@Html.DisplayFor(modelItem => item.Title)</a>
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Status)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.AnalyzedStatus)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Type)
+            </td>
+            <td>
+                @Html.DisplayFor(modelItem => item.Malformed)
+            </td>
+        </tr>
+}
+    </tbody>
+</table>

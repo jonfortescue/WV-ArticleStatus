@@ -22,6 +22,9 @@ namespace WV_ArticleStatus.Data
             builder.Entity<ArticleModel>().Property(nameof(ArticleModel.RegionsOrDistricts)).HasConversion(splitStringConverter);
             builder.Entity<ArticleModel>().Property(nameof(ArticleModel.Cities)).HasConversion(splitStringConverter);
             builder.Entity<ArticleModel>().Property(nameof(ArticleModel.OtherDestinations)).HasConversion(splitStringConverter);
+
+            var titleConverter = new ValueConverter<string, string>(v => v.Replace("ș", "sssss"), v => v.Replace("sssss", "ș"));
+            builder.Entity<ArticleModel>().Property(nameof(ArticleModel.Title)).HasConversion(titleConverter);
         }
 
         public DbSet<ArticleModel> Articles { get; set; }
